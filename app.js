@@ -87,6 +87,17 @@ class SpotifyAuth {
 
         return hash.access_token;
     }
+
+    static checkAuthStatus() {
+        const token = this.getToken();
+        if (token) {
+            console.log('Auth token found:', token.substring(0, 10) + '...');
+            return true;
+        } else {
+            console.log('No auth token found');
+            return false;
+        }
+    }
 }
 
 // Spotify API Handler
@@ -97,17 +108,32 @@ class SpotifyAPI {
     }
 
     async fetchWithAuth(endpoint, options = {}) {
-        const response = await fetch(`${this.baseUrl}${endpoint}`, {
-            ...options,
-            headers: {
-                'Authorization': `Bearer ${this.token}`,
-                'Content-Type': 'application/json'
+        try {
+            const response = await fetch(`${this.baseUrl}${endpoint}`, {
+                ...options,
+                headers: {
+                    'Authorization': `Bearer ${this.token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('Spotify API Error:', errorData);
+                throw new Error(`Spotify API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
             }
-        });
-        return response.json();
+
+            return response.json();
+        } catch (error) {
+            console.error('Fetch error:', error);
+            throw error;
+        }
     }
 
     async getRecommendations(mood) {
+        console.log('Getting recommendations for mood:', mood);
+        console.log('Using token:', this.token.substring(0, 10) + '...');
+        
         const { genres, valence, energy } = moodMappings[mood];
         const params = new URLSearchParams({
             seed_genres: genres.join(','),
@@ -116,7 +142,16 @@ class SpotifyAPI {
             limit: 20
         });
 
-        return this.fetchWithAuth(`/recommendations?${params}`);
+        console.log('Request parameters:', params.toString());
+        
+        try {
+            const data = await this.fetchWithAuth(`/recommendations?${params}`);
+            console.log('Received recommendations:', data);
+            return data;
+        } catch (error) {
+            console.error('Error getting recommendations:', error);
+            throw error;
+        }
     }
 
     async createPlaylist(userId, name, tracks) {
@@ -158,49 +193,69 @@ class UIController {
 
     static updateCustomizationUI(mood) {
         const { valence, energy } = moodMappings[mood];
-        document.querySelector('input[name="energy"]').value = energy * 100;
-        document.querySelector('input[name="valence"]').value = valence * 100;
+        const energySlider = document.querySelector('input[name="energy"]');
+        const valenceSlider = document.querySelector('input[name="valence"]');
+
+        if (energySlider) {
+            energySlider.value = energy * 100;
+        }
+        if (valenceSlider) {
+            valenceSlider.value = valence * 100;
+        }
     }
 }
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
+    // Check auth status on load
+    SpotifyAuth.checkAuthStatus();
+
     // Handle mood selection
     moodCards.forEach(card => {
         card.addEventListener('click', async (e) => {
             const selectedMood = e.currentTarget.dataset.mood;
+            console.log('Selected mood:', selectedMood);
             const loadingTimeout = animations.addLoadingWave();
-
+            
             try {
                 const token = SpotifyAuth.getToken();
+                console.log('Token present:', !!token);
+                
                 if (!token) {
+                    console.log('No token found, redirecting to login...');
                     SpotifyAuth.login();
                     return;
                 }
 
+                console.log('Creating Spotify API instance...');
                 const spotifyAPI = new SpotifyAPI(token);
+                
+                console.log('Fetching recommendations...');
                 const recommendations = await spotifyAPI.getRecommendations(selectedMood);
+                console.log('Recommendations received:', recommendations);
 
+                if (!recommendations.tracks || recommendations.tracks.length === 0) {
+                    throw new Error('No tracks received from Spotify');
+                }
+                
                 clearTimeout(loadingTimeout);
                 animations.fadeOut(loadingContainer);
 
-                // Make sure sections are visible before updating UI
+                // Make sections visible
                 customizationSection.classList.remove('hidden');
                 playlistSection.classList.remove('hidden');
 
-                // Small delay to ensure DOM elements are ready
-                setTimeout(() => {
-                    UIController.renderPlaylist(recommendations.tracks);
-                    UIController.updateCustomizationUI(selectedMood);
-                }, 100);
+                console.log('Rendering playlist...');
+                UIController.renderPlaylist(recommendations.tracks);
+                UIController.updateCustomizationUI(selectedMood);
 
             } catch (error) {
-                console.error('Error generating playlist:', error);
+                console.error('Error in mood selection handler:', error);
                 clearTimeout(loadingTimeout);
                 animations.fadeOut(loadingContainer);
-
-                // Show error to user
-                alert('Sorry, there was an error generating your playlist. Please try again.');
+                
+                // Show user-friendly error
+                alert(`Error: ${error.message || 'Unable to generate playlist. Please try again.'}`);
             }
         });
     });
@@ -227,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Add some visual flair with scroll animations
+// Add scroll animations
 const observerOptions = {
     threshold: 0.1,
     rootMargin: '0px 0px -50px 0px'
