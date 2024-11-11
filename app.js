@@ -1,7 +1,5 @@
 // Spotify API Configuration
 const SPOTIFY_CLIENT_ID = 'db22c413e7634d3eaeb95e53cafe0f4c';
-// Update this line
-// Update this line
 const SPOTIFY_REDIRECT_URI = 'https://literallyazer.github.io/moodify/';
 const SPOTIFY_SCOPES = [
     'user-read-private',
@@ -156,22 +154,6 @@ class UIController {
                 </button>
             </div>
         `).join('');
-        class UIController {
-    // ... existing renderPlaylist method ...
-
-    static updateCustomizationUI(mood) {
-        const { valence, energy } = moodMappings[mood];
-        const energySlider = document.querySelector('input[name="energy"]');
-        const valenceSlider = document.querySelector('input[name="valence"]');
-
-        if (energySlider) {
-            energySlider.value = energy * 100;
-        }
-        if (valenceSlider) {
-            valenceSlider.value = valence * 100;
-        }
-    }
-}
     }
 
     static updateCustomizationUI(mood) {
@@ -188,35 +170,35 @@ document.addEventListener('DOMContentLoaded', () => {
         card.addEventListener('click', async (e) => {
             const selectedMood = e.currentTarget.dataset.mood;
             const loadingTimeout = animations.addLoadingWave();
-            
+
             try {
                 const token = SpotifyAuth.getToken();
                 if (!token) {
                     SpotifyAuth.login();
                     return;
                 }
-    
+
                 const spotifyAPI = new SpotifyAPI(token);
                 const recommendations = await spotifyAPI.getRecommendations(selectedMood);
-                
+
                 clearTimeout(loadingTimeout);
                 animations.fadeOut(loadingContainer);
-    
+
                 // Make sure sections are visible before updating UI
                 customizationSection.classList.remove('hidden');
                 playlistSection.classList.remove('hidden');
-                
+
                 // Small delay to ensure DOM elements are ready
                 setTimeout(() => {
                     UIController.renderPlaylist(recommendations.tracks);
                     UIController.updateCustomizationUI(selectedMood);
                 }, 100);
-    
+
             } catch (error) {
                 console.error('Error generating playlist:', error);
                 clearTimeout(loadingTimeout);
                 animations.fadeOut(loadingContainer);
-                
+
                 // Show error to user
                 alert('Sorry, there was an error generating your playlist. Please try again.');
             }
