@@ -1,7 +1,7 @@
 // Spotify API Configuration
 const SPOTIFY_CLIENT_ID = 'db22c413e7634d3eaeb95e53cafe0f4c';
 // Update this line
-const SPOTIFY_REDIRECT_URI = 'file:///C:/Users/fdhnf/Desktop/moodify/index.html';
+const SPOTIFY_REDIRECT_URI = 'https://literallyazer.github.io/moodify/';
 const SPOTIFY_SCOPES = [
     'user-read-private',
     'playlist-modify-public',
